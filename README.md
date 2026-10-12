@@ -13,6 +13,8 @@ time-to-reset displays, all previewed live in the settings panel.
 
 <img src="res/screenshots/popup.png" alt="AI Usage applet — ring indicators in the panel and the click popup" width="300"/>
 
+<img src="res/screenshots/opencode.png" alt="AI Usage popup showing OpenCode" width="300"/>
+
 ## Data source
 
 Each provider is one JSONL history file; the applet reads the last valid line
