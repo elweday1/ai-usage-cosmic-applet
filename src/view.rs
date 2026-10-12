@@ -539,7 +539,10 @@ pub fn indicator_view<'a>(
 }
 
 /// Full popup width for the budget meters (also sets the popup's overall width).
-const POPUP_METER: f32 = 200.0;
+const POPUP_METER: f32 = 150.0;
+/// Width of the info popup; the settings panel uses a wider one for its sliders.
+pub const INFO_POPUP_WIDTH: f32 = 260.0;
+pub const SETTINGS_POPUP_WIDTH: f32 = 360.0;
 
 /// One budget as a gauge block: name + hero percentage on a row, a full-width
 /// gradient meter beneath, and the reset countdown as a quiet caption.
@@ -580,11 +583,31 @@ fn budget_block<'a>(
 
 /// The click popup contents: both budgets as gauge blocks with a divider
 /// between, and a right-aligned settings link in the footer.
-pub fn popup_view<'a>(sample: &UsageSample, now: i64, cfg: &Config) -> Element<'a, Message> {
+pub fn popup_view<'a>(
+    name: &str,
+    sample: &UsageSample,
+    now: i64,
+    cfg: &Config,
+) -> Element<'a, Message> {
     let t = &cfg.thresholds;
+    let age = now - sample.ts;
+    let (updated, lvl_color) = if sample.is_stale(now, cfg.stale_after) {
+        (format!("stale · {} ago", format_countdown(age)), color(Level::Amber))
+    } else if age < 60 {
+        ("updated just now".to_string(), Color::from_rgba(1.0, 1.0, 1.0, 0.6))
+    } else {
+        (format!("updated {} ago", format_countdown(age)), Color::from_rgba(1.0, 1.0, 1.0, 0.6))
+    };
+    let header = widget::Row::new()
+        .align_y(Alignment::Center)
+        .push(widget::text::title4(name.to_string()))
+        .push(widget::Space::new().width(Length::Fill).height(Length::Fixed(0.0)))
+        .push(widget::text::caption(updated).class(cosmic::theme::Text::Color(lvl_color)));
     widget::Column::new()
         .spacing(14)
         .padding(14)
+        .push(header)
+        .push(widget::divider::horizontal::light())
         .push(budget_block(
             "Session · 5h",
             sample.session,
@@ -620,7 +643,7 @@ static POPUP_AUTOSIZE_ID: LazyLock<widget::Id> =
 /// `cosmic.background(transparent)`, so a translucent theme lets the
 /// compositor blur show through. libcosmic's `popup_container` paints the
 /// opaque base instead, which is why its popups don't blur.
-pub fn popup_surface<'a>(content: impl Into<Element<'a, Message>>) -> Element<'a, Message> {
+pub fn popup_surface<'a>(content: impl Into<Element<'a, Message>>, width: f32) -> Element<'a, Message> {
     widget::autosize::autosize(
         widget::container(content).style(|theme: &cosmic::Theme| {
             let cosmic = theme.cosmic();
@@ -640,8 +663,8 @@ pub fn popup_surface<'a>(content: impl Into<Element<'a, Message>>) -> Element<'a
     )
     .limits(
         cosmic::iced::Limits::NONE
-            .min_width(360.0)
-            .max_width(360.0)
+            .min_width(width)
+            .max_width(width)
             .min_height(1.0)
             .max_height(1000.0),
     )

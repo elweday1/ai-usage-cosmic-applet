@@ -289,17 +289,24 @@ impl cosmic::Application for Window {
     /// The popup window: info details or the settings panel.
     fn view_window(&self, _id: Id) -> Element<'_, Self::Message> {
         match self.popup_kind {
-            PopupKind::Settings => view::popup_surface(view::settings_view(&self.config)),
+            PopupKind::Settings => {
+                view::popup_surface(view::settings_view(&self.config), view::SETTINGS_POPUP_WIDTH)
+            }
             PopupKind::Info => {
-                let body: Element<'_, Message> = match self.current().and_then(|ps| ps.sample.as_ref()) {
-                    Some(s) => view::popup_view(s, self.now, &self.config),
-                    None => cosmic::widget::text("No usage data yet").size(14).into(),
+                let body: Element<'_, Message> = match self.current() {
+                    Some(ps) => match ps.sample.as_ref() {
+                        Some(s) => view::popup_view(&ps.provider.name, s, self.now, &self.config),
+                        None => cosmic::widget::text(format!("{}: no usage data yet", ps.provider.name))
+                            .size(14)
+                            .into(),
+                    },
+                    None => cosmic::widget::text("No AI usage tools detected").size(14).into(),
                 };
                 let mut col = cosmic::widget::Column::new().spacing(8);
                 if self.providers.len() > 1 {
                     col = col.push(self.tab_bar());
                 }
-                view::popup_surface(col.push(body))
+                view::popup_surface(col.push(body), view::INFO_POPUP_WIDTH)
             }
         }
     }
