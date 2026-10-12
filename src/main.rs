@@ -9,7 +9,7 @@ mod usage;
 mod view;
 mod watch;
 
-use cosmic::iced::platform_specific::shell::wayland::commands::popup::{destroy_popup, get_popup};
+use cosmic::iced::platform_specific::shell::wayland::commands::popup::destroy_popup;
 use cosmic::iced::window::Id;
 use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::iced::{time, Subscription};
@@ -158,20 +158,8 @@ impl cosmic::Application for Window {
                 self.refresh();
                 return if let Some(id) = self.popup.take() {
                     destroy_popup(id)
-                } else if let Some(parent) = self.core.main_window_id() {
-                    let new_id = Id::unique();
-                    self.popup = Some(new_id);
-                    self.popup_kind = PopupKind::Info;
-                    let popup_settings = self.core.applet.get_popup_settings(
-                        parent,
-                        new_id,
-                        None,
-                        None,
-                        None,
-                    );
-                    get_popup(popup_settings)
                 } else {
-                    Task::none()
+                    Self::open_popup(PopupKind::Info)
                 };
             }
             Message::ToggleSettings => {
@@ -187,23 +175,7 @@ impl cosmic::Application for Window {
                         Task::none()
                     }
                     // Closed: open a fresh popup directly in settings mode.
-                    None => {
-                        if let Some(parent) = self.core.main_window_id() {
-                            let new_id = Id::unique();
-                            self.popup = Some(new_id);
-                            self.popup_kind = PopupKind::Settings;
-                            let popup_settings = self.core.applet.get_popup_settings(
-                                parent,
-                                new_id,
-                                None,
-                                None,
-                                None,
-                            );
-                            get_popup(popup_settings)
-                        } else {
-                            Task::none()
-                        }
-                    }
+                    None => Self::open_popup(PopupKind::Settings),
                 };
             }
             Message::ShowInfo => {
@@ -343,6 +315,27 @@ impl cosmic::Application for Window {
 }
 
 impl Window {
+    /// Open a popup surface the way the stock applets do (`surface_task` with
+    /// `app_popup`). The popup content comes from `view_window`.
+    fn open_popup(kind: PopupKind) -> Task<cosmic::Action<Message>> {
+        cosmic::surface::surface_task(cosmic::surface::action::app_popup(
+            |_| Default::default(),
+            move |app: &mut Self| {
+                let new_id = Id::unique();
+                app.popup = Some(new_id);
+                app.popup_kind = kind;
+                app.core.applet.get_popup_settings(
+                    app.core.main_window_id().unwrap(),
+                    new_id,
+                    None,
+                    None,
+                    None,
+                )
+            },
+            None,
+        ))
+    }
+
     /// Re-detect providers and re-read their samples, plus the clock.
     fn refresh(&mut self) {
         self.providers = load_providers(&self.config);
