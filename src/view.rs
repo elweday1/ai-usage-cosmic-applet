@@ -742,7 +742,7 @@ pub fn settings_view<'a>(cfg: &Config) -> Element<'a, Message> {
         ))
         .add(
             widget::text_input(
-                "~/.claude/usage-history.jsonl",
+                "Claude: ~/.claude/usage-history.jsonl",
                 cfg.history_path.clone().unwrap_or_default(),
             )
             .on_input(Message::SetHistoryPath),
@@ -751,7 +751,7 @@ pub fn settings_view<'a>(cfg: &Config) -> Element<'a, Message> {
     widget::Column::new()
         .spacing(16)
         .padding(16)
-        .push(widget::text::title3("Claude usage"))
+        .push(widget::text::title3("AI usage"))
         .push(settings_preview(cfg))
         .push(indicator)
         .push(reset_sec)

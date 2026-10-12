@@ -2,7 +2,7 @@
 name = "cosmic-applet-claude-usage"
 version = "0.1.2"
 edition = "2024"
-description = "Minimal COSMIC panel applet showing Claude Code usage"
+description = "Minimal COSMIC panel applet showing AI tool usage (Claude, Codex, OpenCode, ...) with auto-detected provider tabs"
 repository = "https://github.com/osterbergsimon/cosmic-applet-claude-usage"
 license = "GPL-3.0-only"
 readme = "README.md"

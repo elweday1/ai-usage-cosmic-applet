@@ -2,7 +2,6 @@
 
 use cosmic::cosmic_config::{self, cosmic_config_derive::CosmicConfigEntry, CosmicConfigEntry};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 /// cosmic-config application id; matches the desktop entry / app id.
 pub const CONFIG_ID: &str = "co.osterberg.ClaudeUsage";
@@ -46,6 +45,7 @@ pub struct Config {
     pub reset_display: ResetDisplay,
     pub thresholds: Thresholds,
     pub stale_after: u64,
+    /// Overrides the Claude history path; other providers are auto-detected.
     pub history_path: Option<String>,
 }
 
@@ -73,14 +73,6 @@ impl Config {
             Err(_) => Config::default(),
         }
     }
-
-    pub fn history_path_resolved(&self) -> PathBuf {
-        if let Some(p) = &self.history_path {
-            return PathBuf::from(p);
-        }
-        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"));
-        home.join(".claude/usage-history.jsonl")
-    }
 }
 
 #[cfg(test)]
@@ -99,19 +91,5 @@ mod tests {
         assert_eq!(c.thresholds.red, 0.80);
         assert_eq!(c.stale_after, 600);
         assert!(c.history_path.is_none());
-    }
-
-    #[test]
-    fn resolves_default_history_path() {
-        let c = Config::default();
-        let p = c.history_path_resolved();
-        assert!(p.ends_with(".claude/usage-history.jsonl"));
-    }
-
-    #[test]
-    fn resolves_override_history_path() {
-        let mut c = Config::default();
-        c.history_path = Some("/x/y.jsonl".into());
-        assert_eq!(c.history_path_resolved(), std::path::PathBuf::from("/x/y.jsonl"));
     }
 }

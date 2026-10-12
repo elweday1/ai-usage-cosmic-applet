@@ -3,6 +3,7 @@
 mod config;
 mod fill;
 mod indicator;
+mod providers;
 mod settings;
 mod usage;
 mod view;
@@ -18,6 +19,7 @@ use std::time::Duration;
 
 use config::{Config, ResetDisplay, Scope, Style};
 use indicator::{indicator_state, IndicatorState};
+use providers::Provider;
 use usage::UsageSample;
 
 /// Which content the popup surface is showing.
@@ -41,11 +43,32 @@ fn unix_now() -> i64 {
         .unwrap_or(0)
 }
 
+/// A detected provider and its most recent usage sample.
+struct ProviderState {
+    provider: Provider,
+    sample: Option<UsageSample>,
+}
+
+/// Detect providers and read each one's latest sample.
+fn load_providers(config: &Config) -> Vec<ProviderState> {
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"));
+    let claude_override = config.history_path.as_deref().map(PathBuf::from);
+    providers::detect(&home, claude_override.as_deref())
+        .into_iter()
+        .map(|provider| {
+            let sample = usage::read_latest(&provider.path);
+            ProviderState { provider, sample }
+        })
+        .collect()
+}
+
 /// The applet model. The COSMIC runtime manages the `core`.
 struct Window {
     core: cosmic::Core,
     config: Config,
-    sample: Option<UsageSample>,
+    providers: Vec<ProviderState>,
+    /// Id of the provider tab in focus; falls back to the first provider.
+    selected: Option<String>,
     now: i64,
     /// The open details popup, if any (set while the popup window is shown).
     popup: Option<Id>,
@@ -66,6 +89,8 @@ pub enum Message {
     ToggleSettings,
     /// Switch the open popup back to the info view.
     ShowInfo,
+    /// Select a provider tab by id.
+    SelectProvider(String),
     /// Settings mutations (each persists config immediately).
     SetScope(Scope),
     SetStyle(Style),
@@ -105,12 +130,13 @@ impl cosmic::Application for Window {
     ) -> (Self, Task<cosmic::Action<Self::Message>>) {
         // Load persisted config from cosmic-config (defaults if absent).
         let config = Config::load();
-        let sample = usage::read_latest(&config.history_path_resolved());
+        let providers = load_providers(&config);
         (
             Window {
                 core,
                 config,
-                sample,
+                providers,
+                selected: None,
                 now: unix_now(),
                 popup: None,
                 popup_kind: PopupKind::Info,
@@ -122,13 +148,14 @@ impl cosmic::Application for Window {
     fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
         match message {
             Message::Reload => {
-                self.sample = usage::read_latest(&self.config.history_path_resolved());
-                self.now = unix_now();
+                self.refresh();
+            }
+            Message::SelectProvider(id) => {
+                self.selected = Some(id);
             }
             Message::TogglePopup => {
                 // Refresh data/clock when opening so the popup is current.
-                self.sample = usage::read_latest(&self.config.history_path_resolved());
-                self.now = unix_now();
+                self.refresh();
                 return if let Some(id) = self.popup.take() {
                     destroy_popup(id)
                 } else if let Some(parent) = self.core.main_window_id() {
@@ -235,7 +262,7 @@ impl cosmic::Application for Window {
                 } else {
                     Some(trimmed.to_string())
                 };
-                self.sample = usage::read_latest(&self.config.history_path_resolved());
+                self.refresh();
                 self.save_config();
                 return Task::none();
             }
@@ -252,26 +279,25 @@ impl cosmic::Application for Window {
     fn subscription(&self) -> Subscription<Self::Message> {
         // inotify watch on the usage file: emits Reload (near-instant) on change.
         // The path doubles as the subscription's identity (run_with hashes it).
-        let path = self.config.history_path_resolved();
-        let file = Subscription::run_with(path, |p: &PathBuf| {
-            watch::file_stream(p.clone())
+        let files = self.providers.iter().map(|ps| {
+            Subscription::run_with(ps.provider.path.clone(), |p: &PathBuf| {
+                watch::file_stream(p.clone())
+            })
         });
         // 30s tick: re-reads the file and refreshes `now`, so staleness and
         // countdowns advance even when the file itself is idle.
         let tick = time::every(Duration::from_secs(30)).map(|_| Message::Reload);
-        Subscription::batch([file, tick])
+        Subscription::batch(files.chain(std::iter::once(tick)))
     }
 
     /// The applet's button in the panel renders the real indicator. Hovering
     /// shows a tooltip; clicking toggles the details popup.
     fn view(&self) -> Element<'_, Self::Message> {
-        let state: IndicatorState =
-            indicator_state(self.sample.as_ref(), self.now, &self.config);
+        let sample = self.current().and_then(|ps| ps.sample.as_ref());
+        let state: IndicatorState = indicator_state(sample, self.now, &self.config);
         // Reset context (elapsed/remaining) for the soonest budget; indicator_view
         // renders it per the reset_display mode (text / compact / glow / ring arcs).
-        let reset = self
-            .sample
-            .as_ref()
+        let reset = sample
             .map(|s| view::reset_info(s, self.now, self.config.scope));
         let content = view::indicator_view(&state, &self.config, reset);
 
@@ -296,18 +322,17 @@ impl cosmic::Application for Window {
                 .applet
                 .popup_container(view::settings_view(&self.config))
                 .into(),
-            PopupKind::Info => match &self.sample {
-                Some(s) => self
-                    .core
-                    .applet
-                    .popup_container(view::popup_view(s, self.now, &self.config))
-                    .into(),
-                None => self
-                    .core
-                    .applet
-                    .popup_container(cosmic::widget::text("No Claude usage data yet").size(14))
-                    .into(),
-            },
+            PopupKind::Info => {
+                let body: Element<'_, Message> = match self.current().and_then(|ps| ps.sample.as_ref()) {
+                    Some(s) => view::popup_view(s, self.now, &self.config),
+                    None => cosmic::widget::text("No usage data yet").size(14).into(),
+                };
+                let mut col = cosmic::widget::Column::new().spacing(8);
+                if self.providers.len() > 1 {
+                    col = col.push(self.tab_bar());
+                }
+                self.core.applet.popup_container(col.push(body)).into()
+            }
         }
     }
 
@@ -322,6 +347,40 @@ impl cosmic::Application for Window {
 }
 
 impl Window {
+    /// Re-detect providers and re-read their samples, plus the clock.
+    fn refresh(&mut self) {
+        self.providers = load_providers(&self.config);
+        self.now = unix_now();
+    }
+
+    /// The provider in focus, or the first detected one.
+    fn current(&self) -> Option<&ProviderState> {
+        self.selected
+            .as_ref()
+            .and_then(|id| self.providers.iter().find(|ps| &ps.provider.id == id))
+            .or_else(|| self.providers.first())
+    }
+
+    /// One button per detected provider; the one in focus is highlighted.
+    fn tab_bar(&self) -> Element<'_, Message> {
+        let current = self.current().map(|ps| ps.provider.id.clone());
+        let mut row = cosmic::widget::Row::new().spacing(6).padding([8, 8, 0, 8]);
+        for ps in &self.providers {
+            let active = current.as_deref() == Some(ps.provider.id.as_str());
+            let class = if active {
+                cosmic::theme::Button::Suggested
+            } else {
+                cosmic::theme::Button::Standard
+            };
+            row = row.push(
+                cosmic::widget::button::text(ps.provider.name.clone())
+                    .class(class)
+                    .on_press(Message::SelectProvider(ps.provider.id.clone())),
+            );
+        }
+        row.into()
+    }
+
     /// Persist the current config back to cosmic-config (best-effort; logs on
     /// failure). Mirrors the stock-applet pattern: open a `Config` handler for
     /// the app id + schema version, then `write_entry`.

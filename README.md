@@ -1,7 +1,9 @@
 # cosmic-applet-claude-usage
 
-A minimal COSMIC panel applet showing Claude Code usage as a quiet color-coded
-indicator. Green → amber → red as you approach your session (5h) or weekly (7d)
+A minimal COSMIC panel applet showing AI tool usage (Claude Code, Codex,
+OpenCode, Antigravity, or anything else that writes the same history format) as
+a quiet color-coded indicator. Providers are auto-detected and shown as tabs in
+the click popup. Green → amber → red as you approach your session (5h) or weekly (7d)
 limit. Click for exact percentages and reset countdowns; right-click for
 settings. Several indicator styles (dot, bars, ring, vertical bar) and
 time-to-reset displays, all previewed live in the settings panel.
@@ -10,8 +12,31 @@ time-to-reset displays, all previewed live in the settings panel.
 
 ## Data source
 
-Reads the last line of `~/.claude/usage-history.jsonl`. Values are "last known"
-between sessions; the indicator dims when data is older than `stale_after`.
+Each provider is one JSONL history file; the applet reads the last valid line
+of each. Values are "last known" between sessions; the indicator dims when data
+is older than `stale_after`.
+
+| Provider     | File (auto-detected if it exists)                    |
+|--------------|------------------------------------------------------|
+| Claude       | `~/.claude/usage-history.jsonl` (or the settings path) |
+| Codex        | `~/.codex/usage-history.jsonl`                       |
+| OpenCode     | `~/.local/share/opencode/usage-history.jsonl`        |
+| Antigravity  | `~/.antigravity/usage-history.jsonl`                 |
+| Anything     | `~/.local/share/ai-usage/<name>.jsonl` → tab `<Name>` |
+
+With more than one provider detected, the popup shows a tab per provider. The
+panel indicator follows the selected tab. Files are rescanned every 30 s, so a
+new provider appears without a restart.
+
+Each line is one JSON object:
+
+```json
+{"ts": 1782580127, "session": 0.38, "weekly": 0.12, "session_reset": 1782583199, "weekly_reset": 1782900000}
+```
+
+`session`/`weekly` are 0–1 fractions of the 5-hour and 7-day limits; `ts` and
+the `*_reset` fields are unix seconds. Any tool that can write this line can
+feed the applet.
 
 Claude Code only exposes the 5-hour and 7-day rate-limit figures on the JSON it
 pipes to a **statusLine** command — nothing writes `usage-history.jsonl` on its
