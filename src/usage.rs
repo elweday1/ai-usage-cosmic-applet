@@ -58,6 +58,20 @@ pub fn read_latest(path: &Path) -> Option<UsageSample> {
     None
 }
 
+/// Worst case across providers: the highest session and the highest weekly
+/// value, each keeping its own reset time, stamped with the newest sample time.
+pub fn aggregate(samples: &[UsageSample]) -> Option<UsageSample> {
+    let s = samples.iter().max_by(|a, b| a.session.total_cmp(&b.session))?;
+    let w = samples.iter().max_by(|a, b| a.weekly.total_cmp(&b.weekly))?;
+    Some(UsageSample {
+        session: s.session,
+        weekly: w.weekly,
+        session_reset: s.session_reset,
+        weekly_reset: w.weekly_reset,
+        ts: samples.iter().map(|x| x.ts).max()?,
+    })
+}
+
 /// Human countdown: "now", "45m", "2h 14m", "4d 3h".
 pub fn format_countdown(secs_remaining: i64) -> String {
     let s = secs_remaining.max(0);
@@ -119,6 +133,19 @@ mod tests {
     #[test]
     fn missing_file_is_none() {
         assert!(read_latest(Path::new("tests/fixtures/does-not-exist.jsonl")).is_none());
+    }
+
+    #[test]
+    fn aggregate_takes_worst_per_window() {
+        let a = UsageSample { session: 0.2, weekly: 0.9, session_reset: 1, weekly_reset: 2, ts: 100 };
+        let b = UsageSample { session: 0.7, weekly: 0.1, session_reset: 3, weekly_reset: 4, ts: 200 };
+        let g = aggregate(&[a, b]).unwrap();
+        assert_eq!(g.session, 0.7);
+        assert_eq!(g.session_reset, 3);
+        assert_eq!(g.weekly, 0.9);
+        assert_eq!(g.weekly_reset, 2);
+        assert_eq!(g.ts, 200);
+        assert!(aggregate(&[]).is_none());
     }
 
     #[test]

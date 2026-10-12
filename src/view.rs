@@ -581,6 +581,113 @@ fn budget_block<'a>(
         .into()
 }
 
+/// Title plus a dim status line ("updated 3m ago" or amber "stale · …").
+fn header<'a>(title: &str, sample_ts: i64, stale: bool, now: i64) -> Element<'a, Message> {
+    let age = now - sample_ts;
+    let (status, status_color) = if stale {
+        (format!("stale · {} ago", format_countdown(age)), color(Level::Amber))
+    } else if age < 60 {
+        ("updated just now".to_string(), Color::from_rgba(1.0, 1.0, 1.0, 0.6))
+    } else {
+        (format!("updated {} ago", format_countdown(age)), Color::from_rgba(1.0, 1.0, 1.0, 0.6))
+    };
+    widget::Column::new()
+        .spacing(2)
+        .push(widget::text::title4(title.to_string()))
+        .push(widget::text::caption(status).class(cosmic::theme::Text::Color(status_color)))
+        .into()
+}
+
+/// Footer link to the settings panel.
+fn footer<'a>() -> Element<'a, Message> {
+    widget::Row::new()
+        .push(widget::Space::new().width(Length::Fill).height(Length::Fixed(0.0)))
+        .push(
+            widget::button::custom(widget::text("⚙ Settings").size(12))
+                .class(cosmic::theme::Button::Text)
+                .on_press(Message::ToggleSettings),
+        )
+        .into()
+}
+
+/// One provider's session/weekly percentages on a single line, tinted by its worst level.
+fn provider_row<'a>(name: &str, s: &UsageSample, now: i64, cfg: &Config) -> Element<'a, Message> {
+    let t = &cfg.thresholds;
+    let worst = s.session.max(s.weekly);
+    let lvl = level_for(worst, t);
+    let stale = s.is_stale(now, cfg.stale_after);
+    let values = format!(
+        "S {}%  W {}%",
+        (s.session * 100.0).round() as i64,
+        (s.weekly * 100.0).round() as i64
+    );
+    widget::Row::new()
+        .align_y(Alignment::Center)
+        .push(widget::text::body(name.to_string()).width(Length::Fill))
+        .push(
+            widget::text::caption(if stale { format!("{values} · stale") } else { values })
+                .class(cosmic::theme::Text::Color(if stale {
+                    Color::from_rgba(1.0, 1.0, 1.0, 0.5)
+                } else {
+                    color(lvl)
+                })),
+        )
+        .into()
+}
+
+/// The "All" tab: highest session and weekly across providers, then one line per provider.
+pub fn aggregate_view<'a>(
+    rows: &[(String, UsageSample)],
+    agg: &UsageSample,
+    now: i64,
+    cfg: &Config,
+) -> Element<'a, Message> {
+    let t = &cfg.thresholds;
+    let session_from = rows
+        .iter()
+        .max_by(|a, b| a.1.session.total_cmp(&b.1.session))
+        .map(|r| r.0.clone())
+        .unwrap_or_default();
+    let weekly_from = rows
+        .iter()
+        .max_by(|a, b| a.1.weekly.total_cmp(&b.1.weekly))
+        .map(|r| r.0.clone())
+        .unwrap_or_default();
+    let stale_all = rows.iter().all(|r| r.1.is_stale(now, cfg.stale_after));
+    let mut list = widget::Column::new().spacing(6);
+    for (name, s) in rows {
+        list = list.push(provider_row(name, s, now, cfg));
+    }
+    widget::Column::new()
+        .spacing(14)
+        .padding(14)
+        .push(header(
+            &format!("All · {} tools", rows.len()),
+            agg.ts,
+            stale_all,
+            now,
+        ))
+        .push(widget::divider::horizontal::light())
+        .push(budget_block(
+            &format!("Session · highest ({session_from})"),
+            agg.session,
+            agg.session_reset,
+            now,
+            t,
+        ))
+        .push(budget_block(
+            &format!("Weekly · highest ({weekly_from})"),
+            agg.weekly,
+            agg.weekly_reset,
+            now,
+            t,
+        ))
+        .push(widget::divider::horizontal::light())
+        .push(list)
+        .push(footer())
+        .into()
+}
+
 /// The click popup contents: both budgets as gauge blocks with a divider
 /// between, and a right-aligned settings link in the footer.
 pub fn popup_view<'a>(
@@ -590,23 +697,10 @@ pub fn popup_view<'a>(
     cfg: &Config,
 ) -> Element<'a, Message> {
     let t = &cfg.thresholds;
-    let age = now - sample.ts;
-    let (updated, lvl_color) = if sample.is_stale(now, cfg.stale_after) {
-        (format!("stale · {} ago", format_countdown(age)), color(Level::Amber))
-    } else if age < 60 {
-        ("updated just now".to_string(), Color::from_rgba(1.0, 1.0, 1.0, 0.6))
-    } else {
-        (format!("updated {} ago", format_countdown(age)), Color::from_rgba(1.0, 1.0, 1.0, 0.6))
-    };
-    let header = widget::Row::new()
-        .align_y(Alignment::Center)
-        .push(widget::text::title4(name.to_string()))
-        .push(widget::Space::new().width(Length::Fill).height(Length::Fixed(0.0)))
-        .push(widget::text::caption(updated).class(cosmic::theme::Text::Color(lvl_color)));
     widget::Column::new()
         .spacing(14)
         .padding(14)
-        .push(header)
+        .push(header(name, sample.ts, sample.is_stale(now, cfg.stale_after), now))
         .push(widget::divider::horizontal::light())
         .push(budget_block(
             "Session · 5h",
@@ -623,16 +717,7 @@ pub fn popup_view<'a>(
             now,
             t,
         ))
-        // Footer: low-prominence settings link, pushed to the right.
-        .push(
-            widget::Row::new()
-                .push(widget::Space::new().width(Length::Fill).height(Length::Fixed(0.0)))
-                .push(
-                    widget::button::custom(widget::text("⚙ Settings").size(12))
-                        .class(cosmic::theme::Button::Text)
-                        .on_press(Message::ToggleSettings),
-                ),
-        )
+        .push(footer())
         .into()
 }
 

@@ -43,6 +43,9 @@ fn unix_now() -> i64 {
         .unwrap_or(0)
 }
 
+/// Tab id for the aggregate view across all providers.
+const ALL_TAB: &str = "__all__";
+
 /// A detected provider and its most recent usage sample.
 struct ProviderState {
     provider: Provider,
@@ -67,7 +70,7 @@ struct Window {
     core: cosmic::Core,
     config: Config,
     providers: Vec<ProviderState>,
-    /// Id of the provider tab in focus; falls back to the first provider.
+    /// Id of the tab in focus (a provider id or `ALL_TAB`); see `active_id`.
     selected: Option<String>,
     now: i64,
     /// The open details popup, if any (set while the popup window is shown).
@@ -265,11 +268,12 @@ impl cosmic::Application for Window {
     /// The applet's button in the panel renders the real indicator. Hovering
     /// shows a tooltip; clicking toggles the details popup.
     fn view(&self) -> Element<'_, Self::Message> {
-        let sample = self.current().and_then(|ps| ps.sample.as_ref());
-        let state: IndicatorState = indicator_state(sample, self.now, &self.config);
+        let sample = self.focused_sample();
+        let state: IndicatorState = indicator_state(sample.as_ref(), self.now, &self.config);
         // Reset context (elapsed/remaining) for the soonest budget; indicator_view
         // renders it per the reset_display mode (text / compact / glow / ring arcs).
         let reset = sample
+            .as_ref()
             .map(|s| view::reset_info(s, self.now, self.config.scope));
         let content = view::indicator_view(&state, &self.config, reset);
 
@@ -293,14 +297,26 @@ impl cosmic::Application for Window {
                 view::popup_surface(view::settings_view(&self.config), view::SETTINGS_POPUP_WIDTH)
             }
             PopupKind::Info => {
-                let body: Element<'_, Message> = match self.current() {
-                    Some(ps) => match ps.sample.as_ref() {
-                        Some(s) => view::popup_view(&ps.provider.name, s, self.now, &self.config),
-                        None => cosmic::widget::text(format!("{}: no usage data yet", ps.provider.name))
-                            .size(14)
-                            .into(),
-                    },
-                    None => cosmic::widget::text("No AI usage tools detected").size(14).into(),
+                let body: Element<'_, Message> = if self.active_id() == ALL_TAB {
+                    let rows: Vec<(String, UsageSample)> = self
+                        .providers
+                        .iter()
+                        .filter_map(|ps| ps.sample.map(|s| (ps.provider.name.clone(), s)))
+                        .collect();
+                    match usage::aggregate(&rows.iter().map(|r| r.1).collect::<Vec<_>>()) {
+                        Some(agg) => view::aggregate_view(&rows, &agg, self.now, &self.config),
+                        None => cosmic::widget::text("No usage data yet").size(14).into(),
+                    }
+                } else {
+                    match self.current() {
+                        Some(ps) => match ps.sample.as_ref() {
+                            Some(s) => view::popup_view(&ps.provider.name, s, self.now, &self.config),
+                            None => cosmic::widget::text(format!("{}: no usage data yet", ps.provider.name))
+                                .size(14)
+                                .into(),
+                        },
+                        None => cosmic::widget::text("No AI usage tools detected").size(14).into(),
+                    }
                 };
                 let mut col = cosmic::widget::Column::new().spacing(8);
                 if self.providers.len() > 1 {
@@ -349,29 +365,57 @@ impl Window {
         self.now = unix_now();
     }
 
-    /// The provider in focus, or the first detected one.
+    /// The single provider in focus, or the first one detected.
     fn current(&self) -> Option<&ProviderState> {
-        self.selected
-            .as_ref()
-            .and_then(|id| self.providers.iter().find(|ps| &ps.provider.id == id))
+        self.providers
+            .iter()
+            .find(|ps| Some(ps.provider.id.as_str()) == self.selected.as_deref())
             .or_else(|| self.providers.first())
     }
 
-    /// One button per detected provider; the one in focus is highlighted.
+    /// The tab in focus. With several providers the aggregate tab is the default.
+    fn active_id(&self) -> String {
+        match self.selected.as_deref() {
+            Some(ALL_TAB) if self.providers.len() > 1 => ALL_TAB.to_string(),
+            Some(id) if self.providers.iter().any(|ps| ps.provider.id == id) => id.to_string(),
+            _ if self.providers.len() > 1 => ALL_TAB.to_string(),
+            _ => self
+                .providers
+                .first()
+                .map(|ps| ps.provider.id.clone())
+                .unwrap_or_default(),
+        }
+    }
+
+    /// The sample the panel indicator shows: the aggregate, or the focused provider's.
+    fn focused_sample(&self) -> Option<UsageSample> {
+        if self.active_id() == ALL_TAB {
+            let samples: Vec<UsageSample> = self.providers.iter().filter_map(|ps| ps.sample).collect();
+            usage::aggregate(&samples)
+        } else {
+            self.current().and_then(|ps| ps.sample)
+        }
+    }
+
+    /// Tabs: "All" (when several providers) followed by one per provider.
     fn tab_bar(&self) -> Element<'_, Message> {
-        let current = self.current().map(|ps| ps.provider.id.clone());
+        let active = self.active_id();
         let mut row = cosmic::widget::Row::new().spacing(6).padding([8, 8, 0, 8]);
-        for ps in &self.providers {
-            let active = current.as_deref() == Some(ps.provider.id.as_str());
-            let class = if active {
+        let mut tabs: Vec<(String, String)> = Vec::new();
+        if self.providers.len() > 1 {
+            tabs.push((ALL_TAB.to_string(), "All".to_string()));
+        }
+        tabs.extend(self.providers.iter().map(|ps| (ps.provider.id.clone(), ps.provider.name.clone())));
+        for (id, label) in tabs {
+            let class = if id == active {
                 cosmic::theme::Button::Suggested
             } else {
                 cosmic::theme::Button::Standard
             };
             row = row.push(
-                cosmic::widget::button::text(ps.provider.name.clone())
+                cosmic::widget::button::text(label)
                     .class(class)
-                    .on_press(Message::SelectProvider(ps.provider.id.clone())),
+                    .on_press(Message::SelectProvider(id)),
             );
         }
         row.into()
