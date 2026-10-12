@@ -36,8 +36,8 @@ dirs = "5"
 
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic"
-# Pinned to libcosmic master HEAD at the time the pop-os/cosmic-applet-template
+# Pinned to the libcosmic revision the COSMIC stock applets build against (cosmic-applets 1.0.0), so popup surfaces can use the transparent background.
 # (which tracks master, unpinned) was cloned for this scaffold.
-rev = "e7f37f3e817a13b81f63266df98f2528ef608eaf"
+rev = "5a8bd9482a35ae94c1e54edf77b331c6b970f170"
 default-features = false
 features = ["applet", "tokio", "wayland", "multi-window", "winit"]

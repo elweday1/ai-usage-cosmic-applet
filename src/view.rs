@@ -4,6 +4,7 @@ use crate::config::{Config, ResetDisplay, Scope, Style, Thresholds};
 use crate::indicator::{level_for, Gauge, IndicatorState, Level};
 use crate::usage::{format_countdown, UsageSample};
 use cosmic::iced::{Alignment, Background, Border, Color, Length};
+use std::sync::LazyLock;
 use cosmic::widget;
 use cosmic::Element;
 
@@ -610,6 +611,41 @@ pub fn popup_view<'a>(sample: &UsageSample, now: i64, cfg: &Config) -> Element<'
                 ),
         )
         .into()
+}
+
+static POPUP_AUTOSIZE_ID: LazyLock<widget::Id> =
+    LazyLock::new(|| widget::Id::new("ai-usage-popup"));
+
+/// Popup surface, matching the stock COSMIC applets: the background comes from
+/// `cosmic.background(transparent)`, so a translucent theme lets the
+/// compositor blur show through. libcosmic's `popup_container` paints the
+/// opaque base instead, which is why its popups don't blur.
+pub fn popup_surface<'a>(content: impl Into<Element<'a, Message>>) -> Element<'a, Message> {
+    widget::autosize::autosize(
+        widget::container(content).style(|theme: &cosmic::Theme| {
+            let cosmic = theme.cosmic();
+            let bg = cosmic.background(theme.transparent);
+            cosmic::iced::widget::container::Style {
+                text_color: Some(bg.on.into()),
+                background: Some(Color::from(bg.base).into()),
+                border: Border {
+                    radius: cosmic.corner_radii.radius_m.into(),
+                    width: 1.0,
+                    color: bg.divider.into(),
+                },
+                ..Default::default()
+            }
+        }),
+        POPUP_AUTOSIZE_ID.clone(),
+    )
+    .limits(
+        cosmic::iced::Limits::NONE
+            .min_width(360.0)
+            .max_width(360.0)
+            .min_height(1.0)
+            .max_height(1000.0),
+    )
+    .into()
 }
 
 /// A live preview of the indicator using fixed demo data (65% usage, ~18 min to

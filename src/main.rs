@@ -317,11 +317,7 @@ impl cosmic::Application for Window {
     /// The popup window: info details or the settings panel.
     fn view_window(&self, _id: Id) -> Element<'_, Self::Message> {
         match self.popup_kind {
-            PopupKind::Settings => self
-                .core
-                .applet
-                .popup_container(view::settings_view(&self.config))
-                .into(),
+            PopupKind::Settings => view::popup_surface(view::settings_view(&self.config)),
             PopupKind::Info => {
                 let body: Element<'_, Message> = match self.current().and_then(|ps| ps.sample.as_ref()) {
                     Some(s) => view::popup_view(s, self.now, &self.config),
@@ -331,7 +327,7 @@ impl cosmic::Application for Window {
                 if self.providers.len() > 1 {
                     col = col.push(self.tab_bar());
                 }
-                self.core.applet.popup_container(col.push(body)).into()
+                view::popup_surface(col.push(body))
             }
         }
     }
