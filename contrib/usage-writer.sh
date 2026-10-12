@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-only
 #
-# usage-writer.sh — feed cosmic-applet-claude-usage.
+# usage-writer.sh — feed ai-usage.
 #
 # The applet only *reads* ~/.claude/usage-history.jsonl; something has to
 # *write* it. Claude Code exposes the 5-hour and 7-day rate-limit figures only

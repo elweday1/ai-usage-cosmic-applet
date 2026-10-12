@@ -1,5 +1,5 @@
 {
-  description = "COSMIC applet showing Claude usage";
+  description = "COSMIC applet showing AI usage";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
@@ -20,7 +20,7 @@
       in {
         # `nix build`, `nix run`, `nix profile install github:…#default`.
         packages.default = package;
-        packages.cosmic-applet-claude-usage = package;
+        packages.ai-usage = package;
 
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = nativeDeps ++ (with pkgs; [ rustc cargo rustfmt clippy just ]);

@@ -42,10 +42,10 @@ jobs:
       - name: Build portable tarball (other distros)
         run: |
           ver="${GITHUB_REF_NAME#v}"
-          dist="cosmic-applet-claude-usage-${ver}-x86_64-linux"
+          dist="ai-usage-${ver}-x86_64-linux"
           mkdir -p "$dist"
-          cp target/release/cosmic-applet-claude-usage "$dist/"
-          cp data/co.osterberg.ClaudeUsage.desktop "$dist/"
+          cp target/release/ai-usage "$dist/"
+          cp data/co.osterberg.AiUsage.desktop "$dist/"
           cp README.md LICENSE "$dist/"
           cp -r contrib "$dist/"
           tar czf "${dist}.tar.gz" "$dist"
@@ -55,6 +55,6 @@ jobs:
         with:
           files: |
             target/debian/*.deb
-            cosmic-applet-claude-usage-*-x86_64-linux.tar.gz
+            ai-usage-*-x86_64-linux.tar.gz
           generate_release_notes: true
           fail_on_unmatched_files: true

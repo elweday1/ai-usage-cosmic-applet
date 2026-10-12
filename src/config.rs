@@ -4,7 +4,7 @@ use cosmic::cosmic_config::{self, cosmic_config_derive::CosmicConfigEntry, Cosmi
 use serde::{Deserialize, Serialize};
 
 /// cosmic-config application id; matches the desktop entry / app id.
-pub const CONFIG_ID: &str = "co.osterberg.ClaudeUsage";
+pub const CONFIG_ID: &str = "co.osterberg.AiUsage";
 /// cosmic-config schema version.
 pub const CONFIG_VERSION: u64 = 1;
 

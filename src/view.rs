@@ -637,26 +637,12 @@ fn settings_preview<'a>(cfg: &Config) -> Element<'a, Message> {
         .push(widget::text::caption("Preview"))
         .push(widget::Space::new().width(Length::Fill).height(Length::Fixed(0.0)))
         .push(preview);
-    // Frame it as a card so it reads as a live sample, not part of the form.
+    // The library's card surface, so the preview follows the theme and stays
+    // translucent under the compositor's blur.
     widget::container(body)
         .padding(12)
         .width(Length::Fill)
-        .style(|theme: &cosmic::Theme| {
-            let on = theme.cosmic().on_bg_color();
-            let mut bg: Color = on.into();
-            bg.a = 0.05;
-            let mut edge: Color = on.into();
-            edge.a = 0.12;
-            widget::container::Style {
-                background: Some(bg.into()),
-                border: Border {
-                    radius: 8.0.into(),
-                    width: 1.0,
-                    color: edge,
-                },
-                ..Default::default()
-            }
-        })
+        .class(cosmic::theme::Container::Card)
         .into()
 }
 

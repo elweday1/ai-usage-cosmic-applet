@@ -1,7 +1,7 @@
 [Desktop Entry]
-Name=Claude Usage
+Name=AI Usage
 Type=Application
-Exec=cosmic-applet-claude-usage
+Exec=ai-usage
 Icon=display-symbolic
 Terminal=false
 Categories=COSMIC;

@@ -1,4 +1,7 @@
-# cosmic-applet-claude-usage
+# ai-usage
+
+> Forked from [osterbergsimon/cosmic-applet-claude-usage](https://github.com/osterbergsimon/cosmic-applet-claude-usage)
+> by Simon Österberg (GPL-3.0). Multi-provider support and renaming by nasser.
 
 A minimal COSMIC panel applet showing AI tool usage (Claude Code, Codex,
 OpenCode, Antigravity, or anything else that writes the same history format) as
@@ -8,7 +11,7 @@ limit. Click for exact percentages and reset countdowns; right-click for
 settings. Several indicator styles (dot, bars, ring, vertical bar) and
 time-to-reset displays, all previewed live in the settings panel.
 
-<img src="res/screenshots/popup.png" alt="Claude Usage applet — ring indicators in the panel and the click popup" width="300"/>
+<img src="res/screenshots/popup.png" alt="AI Usage applet — ring indicators in the panel and the click popup" width="300"/>
 
 ## Data source
 
@@ -59,8 +62,8 @@ just install-statusline          # or: bash contrib/install-statusline.sh
 ```
 
 Installed from the `.deb`/tarball instead of a checkout? The same scripts ship
-at `/usr/share/cosmic-applet-claude-usage/` (and in the tarball's `contrib/`),
-so run `bash /usr/share/cosmic-applet-claude-usage/install-statusline.sh`.
+at `/usr/share/ai-usage/` (and in the tarball's `contrib/`),
+so run `bash /usr/share/ai-usage/install-statusline.sh`.
 
 This copies the writer to `~/.claude/usage-writer.sh` and wires it into Claude
 Code. If you **have no statusLine**, it sets one (backing up `settings.json`
@@ -107,13 +110,13 @@ covered by `contrib/test-usage-writer.sh` and `contrib/test-install-statusline.s
 ## Install
 
 After installing by any route below, add the applet to your panel:
-**COSMIC Settings → Panel (or Dock) → Applets → add "Claude Usage"**.
+**COSMIC Settings → Panel (or Dock) → Applets → add "AI Usage"**.
 
 ### Prebuilt package (Pop!_OS / Ubuntu / Debian)
 
 Grab the latest `.deb` from the [Releases page][releases] and install it:
 
-    sudo apt install ./cosmic-applet-claude-usage_*_amd64.deb
+    sudo apt install ./ai-usage_*_amd64.deb
 
 For other distros, the release also ships a portable `*-x86_64-linux.tar.gz`
 (binary + desktop entry) — drop the binary on your `PATH` and the `.desktop`
@@ -126,7 +129,7 @@ file in `~/.local/share/applications/`.
 A [Cachix][cachix] binary cache serves prebuilt builds, so installing skips
 compiling libcosmic. Enable the cache, then install:
 
-    cachix use cosmic-applet-claude-usage
+    cachix use ai-usage
     nix profile install github:osterbergsimon/cosmic-applet-claude-usage
 
 Without the `cachix` CLI, add the substituter to your Nix config instead:
@@ -139,12 +142,12 @@ substituter above in `nix.settings` so the build is fetched, not compiled):
 
 ```nix
 # flake.nix
-inputs.cosmic-applet-claude-usage.url =
+inputs.ai-usage.url =
   "github:osterbergsimon/cosmic-applet-claude-usage";
 
 # in your nixosConfiguration / homeConfiguration modules:
-nixpkgs.overlays = [ inputs.cosmic-applet-claude-usage.overlays.default ];
-environment.systemPackages = [ pkgs.cosmic-applet-claude-usage ];  # or home.packages
+nixpkgs.overlays = [ inputs.ai-usage.overlays.default ];
+environment.systemPackages = [ pkgs.ai-usage ];  # or home.packages
 ```
 
 then `sudo nixos-rebuild switch` (or `home-manager switch`).
@@ -176,7 +179,7 @@ devShell, so `cargo`/`just` run inside `nix develop -c …`:
 
 ## Config
 
-Stored via cosmic-config (`co.osterberg.ClaudeUsage` v1). Defaults are used on
+Stored via cosmic-config (`co.osterberg.AiUsage` v1). Defaults are used on
 first run and whenever a key is unset or unreadable. The settings panel only
 offers reset displays the chosen style can render (e.g. `dual-ring` is ring-only;
 `track` is an arc on rings, an under-bar on horizontal bars, a companion column
@@ -204,5 +207,10 @@ style. Keys:
 - `src/view.rs` — all rendering (indicators, meters, popup, settings)
 - `src/config.rs` — config struct + cosmic-config loader
 - `src/settings.rs` — pure label/variant mapping for the settings dropdowns
-- `data/co.osterberg.ClaudeUsage.desktop` — COSMIC applet desktop entry
+- `data/co.osterberg.AiUsage.desktop` — COSMIC applet desktop entry
 - `justfile` — system `install` / `install-dev` / `build` / `test` recipes
+
+## Credits
+
+Original Claude Code applet and statusLine writer by
+[Simon Österberg](https://github.com/osterbergsimon), GPL-3.0-only (see `LICENSE`).

@@ -1,4 +1,4 @@
-appid := 'co.osterberg.ClaudeUsage'
+appid := 'co.osterberg.AiUsage'
 
 # ---- system install (any COSMIC distro) -------------------------------------
 # Staging root (for packagers) and install prefix. Override on the command line:
@@ -8,7 +8,7 @@ appid := 'co.osterberg.ClaudeUsage'
 rootdir := ''
 prefix := '/usr'
 base := rootdir / prefix
-bin-dst := base / 'bin/cosmic-applet-claude-usage'
+bin-dst := base / 'bin/ai-usage'
 desktop-dst := base / 'share/applications' / appid + '.desktop'
 
 # Build the optimized binary.
@@ -31,7 +31,7 @@ install-statusline:
 
 # Install binary + .desktop under {{prefix}} (sudo for /usr; Exec resolved via PATH).
 install:
-    install -Dm0755 target/release/cosmic-applet-claude-usage {{bin-dst}}
+    install -Dm0755 target/release/ai-usage {{bin-dst}}
     install -Dm0644 data/{{appid}}.desktop {{desktop-dst}}
 
 uninstall:
@@ -40,8 +40,8 @@ uninstall:
 # ---- dev install (no sudo, no /usr) -----------------------------------------
 bindir := env_var('HOME') / '.local/bin'
 libexecdir := env_var('HOME') / '.local/libexec'
-bin-real := libexecdir / 'cosmic-applet-claude-usage-bin'
-bin-wrapper := bindir / 'cosmic-applet-claude-usage'
+bin-real := libexecdir / 'ai-usage-bin'
+bin-wrapper := bindir / 'ai-usage'
 desktop-dev := env_var('HOME') / '.local/share/applications' / appid + '.desktop'
 
 # Dev install for iterating before the Nix package is wired in. winit dlopens
@@ -53,7 +53,7 @@ desktop-dev := env_var('HOME') / '.local/share/applications' / appid + '.desktop
 
 # Dev install to ~/.local (no sudo; LD_LIBRARY_PATH-wrapped). Run under nix develop.
 install-dev: build
-    install -Dm0755 target/release/cosmic-applet-claude-usage {{bin-real}}
+    install -Dm0755 target/release/ai-usage {{bin-real}}
     mkdir -p {{bindir}}
     printf '#!/bin/sh\nexport LD_LIBRARY_PATH=%s\nexec %s "$@"\n' "$LD_LIBRARY_PATH" "{{bin-real}}" > {{bin-wrapper}}
     chmod +x {{bin-wrapper}}

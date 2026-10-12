@@ -13,7 +13,7 @@
 }:
 
 rustPlatform.buildRustPackage {
-  pname = "cosmic-applet-claude-usage";
+  pname = "ai-usage";
   version = "0.1.2";
 
   # Only the files the build, tests, and install actually use. Keeping README,
@@ -44,17 +44,17 @@ rustPlatform.buildRustPackage {
   ];
 
   postInstall = ''
-    install -Dm0644 data/co.osterberg.ClaudeUsage.desktop \
-      $out/share/applications/co.osterberg.ClaudeUsage.desktop
-    substituteInPlace $out/share/applications/co.osterberg.ClaudeUsage.desktop \
-      --replace-warn 'Exec=cosmic-applet-claude-usage' "Exec=$out/bin/cosmic-applet-claude-usage"
+    install -Dm0644 data/co.osterberg.AiUsage.desktop \
+      $out/share/applications/co.osterberg.AiUsage.desktop
+    substituteInPlace $out/share/applications/co.osterberg.AiUsage.desktop \
+      --replace-warn 'Exec=ai-usage' "Exec=$out/bin/ai-usage"
   '';
 
   meta = {
     description = "Minimal COSMIC panel applet showing Claude Code usage";
     homepage = "https://github.com/osterbergsimon/cosmic-applet-claude-usage";
     license = lib.licenses.gpl3Only;
-    mainProgram = "cosmic-applet-claude-usage";
+    mainProgram = "ai-usage";
     platforms = lib.platforms.linux;
   };
 }

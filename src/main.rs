@@ -114,7 +114,7 @@ impl cosmic::Application for Window {
     type Message = Message;
 
     /// Unique identifier in RDNN (reverse domain name notation) format.
-    const APP_ID: &'static str = "co.osterberg.ClaudeUsage";
+    const APP_ID: &'static str = "co.osterberg.AiUsage";
 
     fn core(&self) -> &cosmic::Core {
         &self.core

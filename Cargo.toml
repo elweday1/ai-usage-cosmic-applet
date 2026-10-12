@@ -1,7 +1,8 @@
 [package]
-name = "cosmic-applet-claude-usage"
+name = "ai-usage"
 version = "0.1.2"
 edition = "2024"
+authors = ["nasser", "Simon Österberg <5444093+osterbergsimon@users.noreply.github.com>"]
 description = "Minimal COSMIC panel applet showing AI tool usage (Claude, Codex, OpenCode, ...) with auto-detected provider tabs"
 repository = "https://github.com/osterbergsimon/cosmic-applet-claude-usage"
 license = "GPL-3.0-only"
@@ -19,12 +20,12 @@ priority = "optional"
 extended-description = "A minimal COSMIC panel applet showing Claude Code usage as a quiet, color-coded indicator with several styles and time-to-reset displays."
 depends = "$auto, libwayland-client0, libxkbcommon0, libvulkan1, libgl1"
 assets = [
-    ["target/release/cosmic-applet-claude-usage", "usr/bin/", "755"],
-    ["data/co.osterberg.ClaudeUsage.desktop", "usr/share/applications/", "644"],
+    ["target/release/ai-usage", "usr/bin/", "755"],
+    ["data/co.osterberg.AiUsage.desktop", "usr/share/applications/", "644"],
     # statusLine writer + installer, so packaged users can feed the applet
     # (see README, "Feeding the applet").
-    ["contrib/usage-writer.sh", "usr/share/cosmic-applet-claude-usage/", "755"],
-    ["contrib/install-statusline.sh", "usr/share/cosmic-applet-claude-usage/", "755"],
+    ["contrib/usage-writer.sh", "usr/share/ai-usage/", "755"],
+    ["contrib/install-statusline.sh", "usr/share/ai-usage/", "755"],
 ]
 
 [dependencies]
